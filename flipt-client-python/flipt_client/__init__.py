@@ -67,6 +67,10 @@ class FliptClient:
             )
 
         self.namespace_key = namespace
+        # Store client options for potential reinitialization after fork
+        self._client_opts = opts
+        # Track the process ID to detect forks
+        self._pid = os.getpid()
 
         self.ffi_core = ctypes.CDLL(engine_library_path)
 
@@ -95,6 +99,30 @@ class FliptClient:
 
         self.engine = self.ffi_core.initialize_engine(client_opts_serialized)
 
+    def _check_and_reinitialize_after_fork(self):
+        """
+        Check if the current process is different from the process that initialized the client.
+        If so, reinitialize the engine to avoid deadlocks from forked processes.
+
+        This is critical for pre-fork web servers like Gunicorn where the master process
+        creates worker processes via fork(). Background threads from the parent process
+        don't survive the fork, which can cause deadlocks.
+        """
+        current_pid = os.getpid()
+        if current_pid != self._pid:
+            # We're in a forked child process, need to reinitialize
+            # First, set engine to None without calling destroy (parent owns that memory)
+            self.engine = None
+
+            # Reinitialize the engine in the child process
+            client_opts_serialized = model_to_json(
+                self._client_opts, exclude_none=True
+            ).encode("utf-8")
+            self.engine = self.ffi_core.initialize_engine(client_opts_serialized)
+
+            # Update PID to current process
+            self._pid = current_pid
+
     def close(self):
         if hasattr(self, "engine") and self.engine is not None:
             self.ffi_core.destroy_engine(self.engine)
@@ -103,6 +131,9 @@ class FliptClient:
     def evaluate_variant(
         self, flag_key: str, entity_id: str, context: Optional[dict] = None
     ) -> VariantEvaluationResponse:
+        # Check if we're in a forked process and reinitialize if needed
+        self._check_and_reinitialize_after_fork()
+
         if context is None:
             context = {}
         if not flag_key or not flag_key.strip():
@@ -129,6 +160,9 @@ class FliptClient:
     def evaluate_boolean(
         self, flag_key: str, entity_id: str, context: Optional[dict] = None
     ) -> BooleanEvaluationResponse:
+        # Check if we're in a forked process and reinitialize if needed
+        self._check_and_reinitialize_after_fork()
+
         if context is None:
             context = {}
         if not flag_key or not flag_key.strip():
@@ -155,6 +189,9 @@ class FliptClient:
     def evaluate_batch(
         self, requests: List[EvaluationRequest]
     ) -> BatchEvaluationResponse:
+        # Check if we're in a forked process and reinitialize if needed
+        self._check_and_reinitialize_after_fork()
+
         evaluation_requests = []
 
         for r in requests:
@@ -192,6 +229,9 @@ class FliptClient:
         return batch_result.result
 
     def list_flags(self) -> FlagList:
+        # Check if we're in a forked process and reinitialize if needed
+        self._check_and_reinitialize_after_fork()
+
         response = self.ffi_core.list_flags(self.engine)
 
         bytes_returned = ctypes.cast(response, ctypes.c_char_p).value
@@ -207,6 +247,9 @@ class FliptClient:
         """
         Returns a snapshot of the current engine state as a base64 encoded JSON string.
         """
+        # Check if we're in a forked process and reinitialize if needed
+        self._check_and_reinitialize_after_fork()
+
         response = self.ffi_core.get_snapshot(self.engine)
         snapshot_bytes = ctypes.cast(response, ctypes.c_char_p).value
         if hasattr(self.ffi_core, "destroy_string"):
