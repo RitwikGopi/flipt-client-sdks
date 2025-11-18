@@ -122,6 +122,13 @@ class FliptClient:
 
             # Update PID to current process
             self._pid = current_pid
+        elif self.engine is None:
+            # Engine was closed but we're trying to reuse the client in the same process
+            # This is generally not recommended, but we'll handle it gracefully
+            client_opts_serialized = model_to_json(
+                self._client_opts, exclude_none=True
+            ).encode("utf-8")
+            self.engine = self.ffi_core.initialize_engine(client_opts_serialized)
 
     def close(self):
         if hasattr(self, "engine") and self.engine is not None:
