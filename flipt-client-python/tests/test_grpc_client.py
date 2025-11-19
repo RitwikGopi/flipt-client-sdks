@@ -4,6 +4,7 @@ import pytest
 from unittest.mock import Mock, MagicMock, patch
 from flipt_client.grpc import FliptGrpcClient, GrpcClientOptions
 from flipt_client.grpc.flipt.evaluation import evaluation_simple_pb2
+from flipt_client.grpc.flipt import flipt_pb2
 
 
 class TestGrpcClientOptions:
@@ -218,34 +219,35 @@ class TestFliptGrpcClient:
         assert request.namespace_key == "production"
 
     @patch('flipt_client.grpc.client.grpc.insecure_channel')
+    @patch('flipt_client.grpc.client.flipt_pb2_grpc.FliptStub')
     @patch('flipt_client.grpc.client.evaluation_simple_pb2_grpc.EvaluationServiceStub')
-    def test_list_flags(self, mock_stub_class, mock_channel):
+    def test_list_flags(self, mock_eval_stub_class, mock_flipt_stub_class, mock_channel):
         """Test list flags functionality."""
-        mock_stub = Mock()
-        mock_stub_class.return_value = mock_stub
+        mock_flipt_stub = Mock()
+        mock_flipt_stub_class.return_value = mock_flipt_stub
 
         # Create mock flags
-        mock_flag1 = evaluation_simple_pb2.Flag(
+        mock_flag1 = flipt_pb2.Flag(
             key="flag-1",
             name="Flag 1",
             description="Test flag 1",
             enabled=True,
-            type=evaluation_simple_pb2.BOOLEAN_FLAG_TYPE
+            type=flipt_pb2.BOOLEAN_FLAG_TYPE
         )
-        mock_flag2 = evaluation_simple_pb2.Flag(
+        mock_flag2 = flipt_pb2.Flag(
             key="flag-2",
             name="Flag 2",
             description="Test flag 2",
             enabled=False,
-            type=evaluation_simple_pb2.VARIANT_FLAG_TYPE
+            type=flipt_pb2.VARIANT_FLAG_TYPE
         )
 
-        mock_response = evaluation_simple_pb2.FlagList(
+        mock_response = flipt_pb2.FlagList(
             flags=[mock_flag1, mock_flag2],
             total_count=2,
             next_page_token=""
         )
-        mock_stub.ListFlags.return_value = mock_response
+        mock_flipt_stub.ListFlags.return_value = mock_response
 
         # Create client and list flags
         client = FliptGrpcClient()
@@ -256,28 +258,29 @@ class TestFliptGrpcClient:
         assert result.total_count == 2
         assert result.flags[0].key == "flag-1"
         assert result.flags[1].key == "flag-2"
-        mock_stub.ListFlags.assert_called_once()
+        mock_flipt_stub.ListFlags.assert_called_once()
 
     @patch('flipt_client.grpc.client.grpc.insecure_channel')
+    @patch('flipt_client.grpc.client.flipt_pb2_grpc.FliptStub')
     @patch('flipt_client.grpc.client.evaluation_simple_pb2_grpc.EvaluationServiceStub')
-    def test_list_flags_with_pagination(self, mock_stub_class, mock_channel):
+    def test_list_flags_with_pagination(self, mock_eval_stub_class, mock_flipt_stub_class, mock_channel):
         """Test list flags with pagination."""
-        mock_stub = Mock()
-        mock_stub_class.return_value = mock_stub
+        mock_flipt_stub = Mock()
+        mock_flipt_stub_class.return_value = mock_flipt_stub
 
-        mock_flag = evaluation_simple_pb2.Flag(
+        mock_flag = flipt_pb2.Flag(
             key="flag-1",
             name="Flag 1",
             enabled=True,
-            type=evaluation_simple_pb2.BOOLEAN_FLAG_TYPE
+            type=flipt_pb2.BOOLEAN_FLAG_TYPE
         )
 
-        mock_response = evaluation_simple_pb2.FlagList(
+        mock_response = flipt_pb2.FlagList(
             flags=[mock_flag],
             total_count=100,
             next_page_token="next_page_123"
         )
-        mock_stub.ListFlags.return_value = mock_response
+        mock_flipt_stub.ListFlags.return_value = mock_response
 
         # Create client and list flags
         client = FliptGrpcClient()
@@ -288,7 +291,7 @@ class TestFliptGrpcClient:
         assert result.total_count == 100
 
         # Verify the request was made with correct parameters
-        call_args = mock_stub.ListFlags.call_args
+        call_args = mock_flipt_stub.ListFlags.call_args
         request = call_args[0][0]
         assert request.limit == 50
         assert request.page_token == "page_token_456"

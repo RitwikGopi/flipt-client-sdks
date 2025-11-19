@@ -6,6 +6,8 @@ from dataclasses import dataclass
 
 from .flipt.evaluation import evaluation_simple_pb2
 from .flipt.evaluation import evaluation_simple_pb2_grpc
+from .flipt import flipt_pb2
+from .flipt import flipt_pb2_grpc
 
 
 @dataclass
@@ -78,8 +80,12 @@ class FliptGrpcClient:
         else:
             self.channel = grpc.insecure_channel(self.opts.address)
 
-        # Create the stub
-        self.stub = evaluation_simple_pb2_grpc.EvaluationServiceStub(self.channel)
+        # Create stubs for both services
+        self.evaluation_stub = evaluation_simple_pb2_grpc.EvaluationServiceStub(self.channel)
+        self.flipt_stub = flipt_pb2_grpc.FliptStub(self.channel)
+
+        # Keep backward compatibility
+        self.stub = self.evaluation_stub
 
         # Set up metadata for authentication
         self.metadata = []
@@ -207,7 +213,7 @@ class FliptGrpcClient:
         environment_key: Optional[str] = None,
         limit: int = 100,
         page_token: Optional[str] = None
-    ) -> evaluation_simple_pb2.FlagList:
+    ) -> flipt_pb2.FlagList:
         """List all flags in the namespace.
 
         Args:
@@ -222,14 +228,14 @@ class FliptGrpcClient:
         Raises:
             grpc.RpcError: If the RPC call fails
         """
-        request = evaluation_simple_pb2.ListFlagRequest(
+        request = flipt_pb2.ListFlagRequest(
             namespace_key=namespace_key or self.opts.namespace_key,
             environment_key=environment_key or self.opts.environment_key,
             limit=limit,
             page_token=page_token or ""
         )
 
-        return self.stub.ListFlags(request, metadata=self.metadata)
+        return self.flipt_stub.ListFlags(request, metadata=self.metadata)
 
     def close(self):
         """Close the gRPC channel and release resources."""
