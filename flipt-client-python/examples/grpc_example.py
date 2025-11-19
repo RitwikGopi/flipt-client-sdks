@@ -174,6 +174,46 @@ def main():
     finally:
         client.close()
 
+    # Example 6: List all flags
+    print("\n" + "=" * 60)
+    print("Example 6: List flags in namespace")
+    print("=" * 60)
+
+    client = FliptGrpcClient(
+        opts=GrpcClientOptions(
+            address="localhost:9000",
+            namespace_key="default"
+        )
+    )
+
+    try:
+        # List flags with default limit (100)
+        result = client.list_flags()
+
+        print(f"Total flags: {result.total_count}")
+        print(f"Flags in this page: {len(result.flags)}")
+        print(f"Next page token: {result.next_page_token if result.next_page_token else 'None'}")
+
+        for flag in result.flags:
+            print(f"\nFlag: {flag.key}")
+            print(f"  Name: {flag.name}")
+            print(f"  Enabled: {flag.enabled}")
+            print(f"  Type: {'Boolean' if flag.type == 1 else 'Variant'}")
+            print(f"  Description: {flag.description}")
+            if flag.variants:
+                print(f"  Variants: {', '.join([v.key for v in flag.variants])}")
+
+        # List with pagination
+        if result.next_page_token:
+            print("\nFetching next page...")
+            next_page = client.list_flags(page_token=result.next_page_token)
+            print(f"Next page has {len(next_page.flags)} flags")
+
+    except Exception as e:
+        print(f"Error: {e}")
+    finally:
+        client.close()
+
 
 if __name__ == "__main__":
     main()

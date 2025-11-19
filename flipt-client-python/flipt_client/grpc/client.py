@@ -201,6 +201,36 @@ class FliptGrpcClient:
 
         return self.stub.Batch(batch_request, metadata=self.metadata)
 
+    def list_flags(
+        self,
+        namespace_key: Optional[str] = None,
+        environment_key: Optional[str] = None,
+        limit: int = 100,
+        page_token: Optional[str] = None
+    ) -> evaluation_simple_pb2.FlagList:
+        """List all flags in the namespace.
+
+        Args:
+            namespace_key: Override the default namespace key
+            environment_key: Override the default environment key
+            limit: Maximum number of flags to return (default: 100)
+            page_token: Token for pagination to get the next page of results
+
+        Returns:
+            FlagList containing the list of flags, next page token, and total count
+
+        Raises:
+            grpc.RpcError: If the RPC call fails
+        """
+        request = evaluation_simple_pb2.ListFlagRequest(
+            namespace_key=namespace_key or self.opts.namespace_key,
+            environment_key=environment_key or self.opts.environment_key,
+            limit=limit,
+            page_token=page_token or ""
+        )
+
+        return self.stub.ListFlags(request, metadata=self.metadata)
+
     def close(self):
         """Close the gRPC channel and release resources."""
         if hasattr(self, 'channel') and self.channel is not None:

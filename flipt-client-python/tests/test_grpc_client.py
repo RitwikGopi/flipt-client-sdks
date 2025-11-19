@@ -216,3 +216,79 @@ class TestFliptGrpcClient:
         call_args = mock_stub.Boolean.call_args
         request = call_args[0][0]
         assert request.namespace_key == "production"
+
+    @patch('flipt_client.grpc.client.grpc.insecure_channel')
+    @patch('flipt_client.grpc.client.evaluation_simple_pb2_grpc.EvaluationServiceStub')
+    def test_list_flags(self, mock_stub_class, mock_channel):
+        """Test list flags functionality."""
+        mock_stub = Mock()
+        mock_stub_class.return_value = mock_stub
+
+        # Create mock flags
+        mock_flag1 = evaluation_simple_pb2.Flag(
+            key="flag-1",
+            name="Flag 1",
+            description="Test flag 1",
+            enabled=True,
+            type=evaluation_simple_pb2.BOOLEAN_FLAG_TYPE
+        )
+        mock_flag2 = evaluation_simple_pb2.Flag(
+            key="flag-2",
+            name="Flag 2",
+            description="Test flag 2",
+            enabled=False,
+            type=evaluation_simple_pb2.VARIANT_FLAG_TYPE
+        )
+
+        mock_response = evaluation_simple_pb2.FlagList(
+            flags=[mock_flag1, mock_flag2],
+            total_count=2,
+            next_page_token=""
+        )
+        mock_stub.ListFlags.return_value = mock_response
+
+        # Create client and list flags
+        client = FliptGrpcClient()
+        result = client.list_flags(limit=10)
+
+        # Verify
+        assert len(result.flags) == 2
+        assert result.total_count == 2
+        assert result.flags[0].key == "flag-1"
+        assert result.flags[1].key == "flag-2"
+        mock_stub.ListFlags.assert_called_once()
+
+    @patch('flipt_client.grpc.client.grpc.insecure_channel')
+    @patch('flipt_client.grpc.client.evaluation_simple_pb2_grpc.EvaluationServiceStub')
+    def test_list_flags_with_pagination(self, mock_stub_class, mock_channel):
+        """Test list flags with pagination."""
+        mock_stub = Mock()
+        mock_stub_class.return_value = mock_stub
+
+        mock_flag = evaluation_simple_pb2.Flag(
+            key="flag-1",
+            name="Flag 1",
+            enabled=True,
+            type=evaluation_simple_pb2.BOOLEAN_FLAG_TYPE
+        )
+
+        mock_response = evaluation_simple_pb2.FlagList(
+            flags=[mock_flag],
+            total_count=100,
+            next_page_token="next_page_123"
+        )
+        mock_stub.ListFlags.return_value = mock_response
+
+        # Create client and list flags
+        client = FliptGrpcClient()
+        result = client.list_flags(limit=50, page_token="page_token_456")
+
+        # Verify
+        assert result.next_page_token == "next_page_123"
+        assert result.total_count == 100
+
+        # Verify the request was made with correct parameters
+        call_args = mock_stub.ListFlags.call_args
+        request = call_args[0][0]
+        assert request.limit == 50
+        assert request.page_token == "page_token_456"

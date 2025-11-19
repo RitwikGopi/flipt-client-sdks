@@ -49,6 +49,11 @@ class EvaluationServiceStub(object):
                 request_serializer=flipt_dot_evaluation_dot_evaluation__simple__pb2.BatchEvaluationRequest.SerializeToString,
                 response_deserializer=flipt_dot_evaluation_dot_evaluation__simple__pb2.BatchEvaluationResponse.FromString,
                 _registered_method=True)
+        self.ListFlags = channel.unary_unary(
+                '/flipt.evaluation.EvaluationService/ListFlags',
+                request_serializer=flipt_dot_evaluation_dot_evaluation__simple__pb2.ListFlagRequest.SerializeToString,
+                response_deserializer=flipt_dot_evaluation_dot_evaluation__simple__pb2.FlagList.FromString,
+                _registered_method=True)
 
 
 class EvaluationServiceServicer(object):
@@ -72,6 +77,12 @@ class EvaluationServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListFlags(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_EvaluationServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -89,6 +100,11 @@ def add_EvaluationServiceServicer_to_server(servicer, server):
                     servicer.Batch,
                     request_deserializer=flipt_dot_evaluation_dot_evaluation__simple__pb2.BatchEvaluationRequest.FromString,
                     response_serializer=flipt_dot_evaluation_dot_evaluation__simple__pb2.BatchEvaluationResponse.SerializeToString,
+            ),
+            'ListFlags': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListFlags,
+                    request_deserializer=flipt_dot_evaluation_dot_evaluation__simple__pb2.ListFlagRequest.FromString,
+                    response_serializer=flipt_dot_evaluation_dot_evaluation__simple__pb2.FlagList.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -172,6 +188,33 @@ class EvaluationService(object):
             '/flipt.evaluation.EvaluationService/Batch',
             flipt_dot_evaluation_dot_evaluation__simple__pb2.BatchEvaluationRequest.SerializeToString,
             flipt_dot_evaluation_dot_evaluation__simple__pb2.BatchEvaluationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListFlags(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/flipt.evaluation.EvaluationService/ListFlags',
+            flipt_dot_evaluation_dot_evaluation__simple__pb2.ListFlagRequest.SerializeToString,
+            flipt_dot_evaluation_dot_evaluation__simple__pb2.FlagList.FromString,
             options,
             channel_credentials,
             insecure,
