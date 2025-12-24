@@ -257,6 +257,72 @@ You also may want to store the snapshot in a local file so that you can use it t
 > [!IMPORTANT]
 > If the Flipt server becomes reachable after the setting the snapshot, the client will replace the snapshot with the new flag state from the Flipt server.
 
+### Usage with Pre-Fork Web Servers (Gunicorn, uWSGI, etc.)
+
+The Flipt Python SDK automatically handles process forking, making it safe to use with pre-fork web servers like **Gunicorn**, **uWSGI**, or when used with **OpenTelemetry instrumentation** that may also create background threads.
+
+#### How It Works
+
+The SDK detects when the process has been forked (common in pre-fork web server architectures) and automatically reinitializes the internal engine in the child process. This prevents deadlocks that can occur when background threads from the parent process don't survive the fork.
+
+#### Usage Example with Gunicorn
+
+You can safely initialize the Flipt client at the module level, and it will work correctly across all worker processes:
+
+```python
+# app.py
+from flipt_client import FliptClient
+from flipt_client.models import ClientOptions
+
+# Initialize client at module level - safe with pre-fork servers
+flipt_client = FliptClient(
+    opts=ClientOptions(
+        url="http://localhost:8080"
+    )
+)
+
+def my_view(request):
+    # The client automatically reinitializes after fork if needed
+    result = flipt_client.evaluate_boolean(
+        flag_key="my-flag",
+        entity_id=request.user.id,
+        context={"user_tier": "premium"}
+    )
+    return result.enabled
+```
+
+Run with Gunicorn:
+
+```bash
+# This works correctly - the SDK handles forking automatically
+gunicorn --workers 4 app:application
+
+# Also works with OpenTelemetry instrumentation
+opentelemetry-instrument gunicorn --workers 4 app:application
+```
+
+#### Why This Matters
+
+Pre-fork web servers like Gunicorn create a master process that loads your application, then fork multiple worker processes from that master. Without automatic fork detection:
+
+1. The master process initializes the Flipt client and creates background threads
+2. When workers are forked, these background threads are killed (POSIX fork behavior)
+3. The worker processes have dead thread handles, causing deadlocks
+4. Your application hangs during initialization
+
+The SDK now automatically detects this scenario and safely reinitializes in each worker process, preventing these issues.
+
+#### OpenTelemetry Compatibility
+
+The SDK is fully compatible with OpenTelemetry instrumentation, which also creates background threads for telemetry collection. Both libraries can coexist in pre-fork server environments:
+
+```bash
+opentelemetry-instrument \
+  --traces_exporter console \
+  --metrics_exporter console \
+  gunicorn --workers 4 app:application
+```
+
 ## Contributing
 
 Contributions are welcome! Please feel free to open an issue or submit a Pull Request.
